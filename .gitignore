@@ -1,0 +1,4 @@
+.cache/
+caps-keymod
+caps-keymod-debug
+compile_commands.json
