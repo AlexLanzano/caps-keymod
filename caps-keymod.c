@@ -8,19 +8,30 @@
 
 #include "uthash.h"
 
-int mappings[][2] = {
-    {KEY_H, KEY_LEFT},
-    {KEY_J, KEY_DOWN},
-    {KEY_K, KEY_UP},
-    {KEY_L, KEY_RIGHT},
-    {KEY_C, KEY_INSERT},
-    {KEY_BACKSPACE, KEY_DELETE},
-    {KEY_F, KEY_PAGEUP}
+int mappings[][3] = {
+    {KEY_H, KEY_LEFT, 0},
+    {KEY_J, KEY_DOWN, 0},
+    {KEY_K, KEY_UP, 0},
+    {KEY_L, KEY_RIGHT, 0},
+    {KEY_C, KEY_INSERT, 0},
+    {KEY_BACKSPACE, KEY_DELETE, 0},
+    {KEY_F, KEY_PAGEUP, 0},
+    {KEY_1, KEY_LEFTALT, KEY_1},
+    {KEY_2, KEY_LEFTALT, KEY_2},
+    {KEY_3, KEY_LEFTALT, KEY_3},
+    {KEY_4, KEY_LEFTALT, KEY_4},
+    {KEY_5, KEY_LEFTALT, KEY_5},
+    {KEY_6, KEY_LEFTALT, KEY_6},
+    {KEY_7, KEY_LEFTALT, KEY_7},
+    {KEY_8, KEY_LEFTALT, KEY_8},
+    {KEY_9, KEY_LEFTALT, KEY_9},
+    {KEY_MINUS, KEY_LEFTALT, KEY_MINUS},
+    {KEY_EQUAL, KEY_LEFTALT, KEY_EQUAL},
 };
 
 typedef struct map {
     int key;
-    int value;
+    int value[2];
     UT_hash_handle hh;
 } map_t;
 
@@ -46,7 +57,7 @@ void close_event(int sig)
 void *thread_capslock_just_released(void *arg)
 {
     (void)(arg);
-    usleep(100000); // 500 milliseconds
+    usleep(80000); // 500 milliseconds
 
     capslock_just_released = 0;
     return NULL;
@@ -61,7 +72,8 @@ void create_keymap(map_t **map)
         }
 
         entry->key = mappings[i][0];
-        entry->value = mappings[i][1];
+        entry->value[0] = mappings[i][1];
+        entry->value[1] = mappings[i][2];
         HASH_ADD_INT(*map, key, entry);
     }
 }
@@ -93,23 +105,30 @@ void write_translated_event(map_t *keymap, struct input_event *input)
 
     HASH_FIND_INT(keymap, &code, keymap_entry);
     if (keymap_entry) {
-        input->code = keymap_entry->value;
-    }
-#ifdef DEBUG
-    if (input->type == EV_KEY)
-        printf("event out: type=%d  code=%d  value=%d\n", input->type, input->code, input->value);
-#else
-    if (fwrite(input, sizeof(struct input_event), 1, stdout) != 1)
-        exit(EXIT_FAILURE);
-#endif
-}
+        input->code = keymap_entry->value[0];
 
-enum _state {
-    MSC,
-    KEY_CAPS,
-    KEY_NO_CAPS,
-    SYN
-};
+#ifdef DEBUG
+        if (input->type == EV_KEY)
+            printf("event out: type=%d  code=%d  value=%d\n", input->type, input->code, input->value);
+        if (keymap_entry->value[1]) {
+            input->code = keymap_entry->value[1];
+            printf("event out: type=%d  code=%d  value=%d\n", input->type, input->code, input->value);
+        }
+#else
+        if (fwrite(input, sizeof(struct input_event), 1, stdout) != 1)
+            exit(EXIT_FAILURE);
+
+        if (keymap_entry->value[1]) {
+            input->code = keymap_entry->value[1];
+            if (fwrite(input, sizeof(struct input_event), 1, stdout) != 1)
+                exit(EXIT_FAILURE);
+        }
+#endif
+    } else {
+        if (fwrite(input, sizeof(struct input_event), 1, stdout) != 1)
+            exit(EXIT_FAILURE);
+    }
+}
 
 int main(int argc, char **argv)
 {
